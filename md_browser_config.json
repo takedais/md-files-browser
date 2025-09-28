@@ -1,0 +1,42 @@
+{
+  "projects": [
+    {
+      "name": "Voice Memo v2",
+      "path": "/home/takedais/voicememo-v2",
+      "description": "医療音声文字起こしシステム",
+      "color": "#2196f3"
+    },
+    {
+      "name": "Medical Text Rules",
+      "path": "/home/takedais/medical-text-rules",
+      "description": "医療テキスト処理",
+      "color": "#4caf50"
+    },
+    {
+      "name": "Voice-to-Text Dictionary",
+      "path": "/home/takedais/voice-to-text-making-dic",
+      "description": "音声認識辞書構築",
+      "color": "#ff9800"
+    }
+  ],
+  "file_patterns": {
+    "important": [
+      "README.md",
+      "CLAUDE.md",
+      "*_REPORT.md",
+      "*_PLAN.md"
+    ],
+    "documentation": [
+      "*_SUMMARY.md",
+      "*.md"
+    ]
+  },
+  "excluded_dirs": [
+    "node_modules",
+    "venv",
+    ".git",
+    "__pycache__"
+  ],
+  "max_file_size_kb": 5000,
+  "recent_files_count": 10
+}

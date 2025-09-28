@@ -1,0 +1,1142 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📚 MD Document Browser</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+            background: white;
+        }
+
+        /* サイドバー */
+        .sidebar {
+            width: 320px;
+            background: #2c3e50;
+            color: white;
+            overflow-y: auto;
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar-header {
+            padding: 20px;
+            background: #34495e;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .sidebar-header h1 {
+            font-size: 1.5em;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .search-box {
+            width: 100%;
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            background: rgba(255,255,255,0.1);
+            color: white;
+            font-size: 14px;
+        }
+
+        .search-box::placeholder {
+            color: rgba(255,255,255,0.5);
+        }
+
+        /* プロジェクト選択 */
+        .project-selector {
+            padding: 15px 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .project-select {
+            width: 100%;
+            padding: 8px;
+            border: none;
+            border-radius: 5px;
+            background: rgba(255,255,255,0.1);
+            color: white;
+            font-size: 14px;
+        }
+
+        .project-select option {
+            background: #2c3e50;
+        }
+
+        /* ファイルリスト */
+        .file-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+        }
+
+        .file-item {
+            padding: 12px;
+            margin: 5px 0;
+            background: rgba(255,255,255,0.05);
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border-left: 3px solid transparent;
+        }
+
+        .file-item:hover {
+            background: rgba(255,255,255,0.1);
+            transform: translateX(3px);
+        }
+
+        .file-item.active {
+            background: rgba(255,255,255,0.15);
+            border-left-color: #3498db;
+        }
+
+        .file-item.priority-1 {
+            border-left-color: #e74c3c;
+        }
+
+        .file-item.priority-2 {
+            border-left-color: #f39c12;
+        }
+
+        .file-item.priority-3 {
+            border-left-color: #27ae60;
+        }
+
+        .file-name {
+            font-weight: 500;
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .file-badge {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 10px;
+            background: rgba(255,255,255,0.2);
+            text-transform: uppercase;
+        }
+
+        .file-meta {
+            font-size: 12px;
+            color: rgba(255,255,255,0.6);
+        }
+
+        .file-preview {
+            font-size: 11px;
+            color: rgba(255,255,255,0.5);
+            margin-top: 4px;
+            line-height: 1.3;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        /* メインコンテンツ */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            height: 100vh;
+            position: relative;
+        }
+
+        .content-header {
+            padding: 20px 30px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0; /* ヘッダーは縮まないように */
+            height: 80px; /* 固定高さ */
+        }
+
+        .content-title {
+            font-size: 1.8em;
+            color: #2c3e50;
+        }
+
+        .content-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .btn-primary {
+            background: #3498db;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #2980b9;
+        }
+
+        .btn-secondary {
+            background: #95a5a6;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #7f8c8d;
+        }
+
+        /* TOC（目次） */
+        .toc-container {
+            position: fixed;
+            right: 20px;
+            top: 100px;
+            width: 250px;
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            max-height: 70vh;
+            overflow-y: auto;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: none;
+        }
+
+        .toc-container.visible {
+            display: block;
+        }
+
+        .toc-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .toc-item {
+            padding: 5px 0;
+            cursor: pointer;
+            color: #3498db;
+            text-decoration: none;
+            display: block;
+            transition: all 0.2s;
+        }
+
+        .toc-item:hover {
+            color: #2980b9;
+            transform: translateX(3px);
+        }
+
+        .toc-item.level-1 { padding-left: 0; font-weight: bold; }
+        .toc-item.level-2 { padding-left: 20px; }
+        .toc-item.level-3 { padding-left: 40px; font-size: 0.9em; }
+        .toc-item.level-4 { padding-left: 60px; font-size: 0.85em; }
+        .toc-item.level-5 { padding-left: 80px; font-size: 0.8em; }
+        .toc-item.level-6 { padding-left: 100px; font-size: 0.75em; }
+
+        /* マークダウンコンテンツ */
+        .markdown-content {
+            flex: 1;
+            padding: 30px;
+            overflow-y: auto;
+            overflow-x: hidden;
+            max-width: 900px;
+            margin: 0 auto;
+            width: 100%;
+            height: calc(100vh - 80px); /* ヘッダーの高さ80pxを引く */
+            position: relative;
+        }
+
+        .markdown-content h1 {
+            color: #2c3e50;
+            margin: 30px 0 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e1e4e8;
+        }
+
+        .markdown-content h2 {
+            color: #34495e;
+            margin: 25px 0 15px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #e1e4e8;
+        }
+
+        .markdown-content h3 {
+            color: #34495e;
+            margin: 20px 0 10px;
+        }
+
+        .markdown-content p {
+            line-height: 1.8;
+            margin: 15px 0;
+        }
+
+        .markdown-content ul, .markdown-content ol {
+            margin: 15px 0;
+            padding-left: 30px;
+        }
+
+        .markdown-content li {
+            margin: 8px 0;
+            line-height: 1.6;
+        }
+
+        .markdown-content code {
+            background: #f6f8fa;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.9em;
+        }
+
+        .markdown-content pre {
+            background: #f6f8fa;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            margin: 20px 0;
+        }
+
+        .markdown-content pre code {
+            background: none;
+            padding: 0;
+        }
+
+        .markdown-content table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 20px 0;
+        }
+
+        .markdown-content th, .markdown-content td {
+            border: 1px solid #dee2e6;
+            padding: 10px 15px;
+            text-align: left;
+        }
+
+        .markdown-content th {
+            background: #f8f9fa;
+            font-weight: 600;
+        }
+
+        .markdown-content blockquote {
+            border-left: 4px solid #3498db;
+            margin: 20px 0;
+            padding-left: 20px;
+            color: #666;
+            font-style: italic;
+        }
+
+        .markdown-content a {
+            color: #3498db;
+            text-decoration: none;
+        }
+
+        .markdown-content a:hover {
+            text-decoration: underline;
+        }
+
+        /* ウェルカム画面 */
+        .welcome {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #7f8c8d;
+            text-align: center;
+            padding: 40px;
+            overflow-y: auto;
+            height: calc(100vh - 40px);
+        }
+
+        .welcome h2 {
+            font-size: 2em;
+            margin-bottom: 20px;
+            color: #34495e;
+        }
+
+        .welcome p {
+            font-size: 1.1em;
+            margin-bottom: 30px;
+        }
+
+        .recent-files {
+            width: 100%;
+            max-width: 600px;
+            margin-top: 30px;
+        }
+
+        .recent-files h3 {
+            color: #34495e;
+            margin-bottom: 15px;
+            text-align: left;
+        }
+
+        .recent-file-item {
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 5px;
+            margin: 8px 0;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: left;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .recent-file-item:hover {
+            background: #e9ecef;
+            transform: translateX(3px);
+        }
+
+        .recent-file-name {
+            font-weight: 500;
+            color: #2c3e50;
+        }
+
+        .recent-file-project {
+            font-size: 0.85em;
+            color: #7f8c8d;
+            background: white;
+            padding: 2px 8px;
+            border-radius: 3px;
+        }
+
+        /* ローディング */
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #7f8c8d;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin-right: 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* レスポンシブ */
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 100%;
+                position: fixed;
+                z-index: 100;
+                transform: translateX(-100%);
+                transition: transform 0.3s;
+            }
+
+            .sidebar.open {
+                transform: translateX(0);
+            }
+
+            .toc-container {
+                right: 10px;
+                width: 200px;
+            }
+        }
+
+        /* タブ */
+        .tabs {
+            display: flex;
+            gap: 10px;
+            padding: 10px 20px;
+            background: rgba(255,255,255,0.05);
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .tab {
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: rgba(255,255,255,0.7);
+        }
+
+        .tab:hover {
+            background: rgba(255,255,255,0.1);
+        }
+
+        .tab.active {
+            background: rgba(255,255,255,0.15);
+            color: white;
+        }
+
+        /* 検索結果 */
+        .search-results {
+            padding: 10px;
+        }
+
+        .search-result-item {
+            background: rgba(255,255,255,0.05);
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .search-result-item:hover {
+            background: rgba(255,255,255,0.1);
+        }
+
+        .match-line {
+            font-size: 11px;
+            color: rgba(255,255,255,0.6);
+            margin-top: 5px;
+            font-family: monospace;
+        }
+
+        .match-highlight {
+            background: rgba(255,220,0,0.3);
+            padding: 0 2px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- サイドバー -->
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h1>📚 MD Browser</h1>
+                <input type="text" class="search-box" id="searchBox" placeholder="ファイル内を検索...">
+            </div>
+
+            <div class="project-selector">
+                <select class="project-select" id="projectSelect">
+                    <option value="">全プロジェクト</option>
+                </select>
+            </div>
+
+            <div class="tabs">
+                <div class="tab active" data-tab="files">ファイル</div>
+                <div class="tab" data-tab="recent">最近の更新</div>
+                <div class="tab" data-tab="search">検索結果</div>
+            </div>
+
+            <div class="file-list" id="fileList">
+                <!-- ファイルリストがここに表示されます -->
+            </div>
+
+            <div class="search-results" id="searchResults" style="display: none;">
+                <!-- 検索結果がここに表示されます -->
+            </div>
+        </div>
+
+        <!-- メインコンテンツ -->
+        <div class="main-content">
+            <div id="welcomeScreen" class="welcome">
+                <h2>📚 Markdown Document Browser</h2>
+                <p>左側のリストからMarkdownファイルを選択してください</p>
+
+                <div class="recent-files" id="recentFiles">
+                    <h3>📅 最近更新されたファイル</h3>
+                    <!-- 最近のファイルがここに表示されます -->
+                </div>
+            </div>
+
+            <div id="contentArea" style="display: none;">
+                <div class="content-header">
+                    <div class="content-title" id="contentTitle">ファイル名</div>
+                    <div class="content-actions">
+                        <button class="btn btn-secondary" onclick="toggleTOC()">📑 目次</button>
+                        <button class="btn btn-primary" onclick="copyToClipboard()">📋 コピー</button>
+                        <button class="btn btn-primary" onclick="downloadPDF()">📄 PDF</button>
+                        <a href="#" id="downloadLink" class="btn btn-primary" download>💾 MD</a>
+                    </div>
+                </div>
+
+                <div class="toc-container" id="tocContainer">
+                    <div class="toc-title">📑 目次</div>
+                    <div id="tocContent"></div>
+                </div>
+
+                <div class="markdown-content" id="markdownContent">
+                    <!-- Markdownコンテンツがここに表示されます -->
+                </div>
+            </div>
+
+            <div id="loadingScreen" class="loading" style="display: none;">
+                <div class="spinner"></div>
+                <span>読み込み中...</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // グローバル変数
+        let currentProject = '';
+        let currentFile = null;
+        let projects = [];
+        let allFiles = [];
+        let recentFiles = [];
+        let currentTab = 'files';
+
+        // 初期化
+        async function init() {
+            await loadProjects();
+            await loadRecentFiles();
+            setupEventListeners();
+
+            // URLパラメータからファイルを開く
+            const urlParams = new URLSearchParams(window.location.search);
+            const filePath = urlParams.get('file');
+            if (filePath) {
+                loadFile(filePath);
+            }
+        }
+
+        // プロジェクト一覧を読み込む
+        async function loadProjects() {
+            try {
+                const response = await fetch('/api/projects');
+                projects = await response.json();
+
+                const select = document.getElementById('projectSelect');
+                projects.forEach(project => {
+                    const option = document.createElement('option');
+                    option.value = project.path;
+                    option.textContent = project.name;
+                    option.style.color = project.color;
+                    select.appendChild(option);
+                });
+            } catch (error) {
+                console.error('プロジェクト読み込みエラー:', error);
+            }
+        }
+
+        // ファイル一覧を読み込む
+        async function loadFiles(projectPath = '') {
+            try {
+                showLoading(true);
+
+                if (!projectPath) {
+                    // 全プロジェクトの場合
+                    allFiles = [];
+                    for (const project of projects) {
+                        const response = await fetch(`/api/files${project.path}?recursive=true`);
+                        const files = await response.json();
+                        files.forEach(file => {
+                            file.project = project.name;
+                            file.projectColor = project.color;
+                        });
+                        allFiles = allFiles.concat(files);
+                    }
+                } else {
+                    const response = await fetch(`/api/files${projectPath}?recursive=true`);
+                    allFiles = await response.json();
+                }
+
+                displayFiles(allFiles);
+            } catch (error) {
+                console.error('ファイル読み込みエラー:', error);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // ファイルリストを表示
+        function displayFiles(files) {
+            const fileList = document.getElementById('fileList');
+            fileList.innerHTML = '';
+
+            files.forEach(file => {
+                const item = createFileItem(file);
+                fileList.appendChild(item);
+            });
+        }
+
+        // ファイルアイテムを作成
+        function createFileItem(file) {
+            const item = document.createElement('div');
+            item.className = `file-item priority-${file.priority}`;
+            if (currentFile && currentFile.path === file.path) {
+                item.classList.add('active');
+            }
+
+            // ファイル名とバッジ
+            const fileName = document.createElement('div');
+            fileName.className = 'file-name';
+            fileName.innerHTML = `
+                ${getFileIcon(file.name)}
+                ${file.name}
+                ${file.project ? `<span class="file-badge" style="background: ${file.projectColor}20">${file.project}</span>` : ''}
+            `;
+
+            // メタ情報
+            const meta = document.createElement('div');
+            meta.className = 'file-meta';
+            meta.textContent = `${file.size_kb} KB | ${file.modified_human}`;
+
+            // プレビュー
+            const preview = document.createElement('div');
+            preview.className = 'file-preview';
+            preview.textContent = file.preview || '';
+
+            item.appendChild(fileName);
+            item.appendChild(meta);
+            if (file.preview) {
+                item.appendChild(preview);
+            }
+
+            item.dataset.filepath = file.path;  // データ属性に保存
+            item.onclick = (e) => loadFile(file.path, e.currentTarget);
+
+            return item;
+        }
+
+        // ファイルアイコンを取得
+        function getFileIcon(filename) {
+            const upper = filename.toUpperCase();
+            if (upper === 'README.MD') return '📖';
+            if (upper.includes('CLAUDE')) return '🤖';
+            if (upper.includes('REPORT')) return '📊';
+            if (upper.includes('PLAN')) return '📋';
+            if (upper.includes('SUMMARY')) return '📝';
+            if (upper.includes('TODO')) return '✅';
+            return '📄';
+        }
+
+        // ファイルを読み込む
+        async function loadFile(filePath, clickedElement) {
+            try {
+                showLoading(true);
+
+                const response = await fetch(`/api/file?path=${encodeURIComponent(filePath)}`);
+                const data = await response.json();
+
+                if (data.error) {
+                    alert(data.error);
+                    return;
+                }
+
+                currentFile = data;
+                displayContent(data);
+
+                // URLを更新
+                const url = new URL(window.location);
+                url.searchParams.set('file', filePath);
+                window.history.pushState({}, '', url);
+
+                // アクティブ状態を更新
+                document.querySelectorAll('.file-item').forEach(item => {
+                    item.classList.remove('active');
+                });
+
+                // クリックされた要素または該当パスの要素をアクティブに
+                if (clickedElement) {
+                    clickedElement.classList.add('active');
+                } else {
+                    // URLから開いた場合など、要素がない場合はパスで検索
+                    document.querySelectorAll('.file-item').forEach(item => {
+                        if (item.dataset.filepath === filePath) {
+                            item.classList.add('active');
+                        }
+                    });
+                }
+
+            } catch (error) {
+                console.error('ファイル読み込みエラー:', error);
+                // alert('ファイルの読み込みに失敗しました');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // コンテンツを表示
+        function displayContent(data) {
+            document.getElementById('welcomeScreen').style.display = 'none';
+            document.getElementById('contentArea').style.display = 'block';
+
+            // タイトル
+            document.getElementById('contentTitle').textContent = data.info.name;
+
+            // コンテンツ
+            document.getElementById('markdownContent').innerHTML = data.html;
+
+            // 目次
+            if (data.toc && data.toc.length > 0) {
+                displayTOC(data.toc);
+            } else {
+                document.getElementById('tocContainer').classList.remove('visible');
+            }
+
+            // ダウンロードリンク
+            const blob = new Blob([data.content], { type: 'text/markdown' });
+            const url = URL.createObjectURL(blob);
+            document.getElementById('downloadLink').href = url;
+            document.getElementById('downloadLink').download = data.info.name;
+
+            // シンタックスハイライトを適用（もしライブラリがある場合）
+            if (typeof hljs !== 'undefined') {
+                document.querySelectorAll('pre code').forEach((block) => {
+                    hljs.highlightBlock(block);
+                });
+            }
+        }
+
+        // 目次を表示
+        function displayTOC(toc) {
+            const tocContent = document.getElementById('tocContent');
+            tocContent.innerHTML = '';
+
+            toc.forEach(item => {
+                const link = document.createElement('a');
+                link.className = `toc-item level-${item.level}`;
+                link.href = `#${item.anchor}`;
+                link.textContent = item.title;
+                link.onclick = (e) => {
+                    e.preventDefault();
+                    // IDで要素を検索
+                    let target = document.getElementById(item.anchor);
+
+                    // IDで見つからない場合は、テキストで検索
+                    if (!target) {
+                        const headings = document.querySelectorAll(`h${item.level}`);
+                        for (let h of headings) {
+                            if (h.textContent.trim() === item.title) {
+                                target = h;
+                                // IDを設定しておく
+                                h.id = item.anchor;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (target) {
+                        // マークダウンコンテンツ内でスクロール
+                        const container = document.getElementById('markdownContent');
+                        const targetPosition = target.offsetTop - container.offsetTop;
+                        container.scrollTo({
+                            top: targetPosition,
+                            behavior: 'smooth'
+                        });
+                    }
+                };
+                tocContent.appendChild(link);
+            });
+        }
+
+        // 目次の表示/非表示
+        function toggleTOC() {
+            document.getElementById('tocContainer').classList.toggle('visible');
+        }
+
+        // クリップボードにコピー
+        function copyToClipboard() {
+            if (!currentFile) return;
+
+            navigator.clipboard.writeText(currentFile.content).then(() => {
+                alert('クリップボードにコピーしました');
+            }).catch(err => {
+                console.error('コピー失敗:', err);
+            });
+        }
+
+        // PDFダウンロード（ブラウザの印刷機能を使用）
+        function downloadPDF() {
+            if (!currentFile || !currentFile.info) return;
+
+            // 新しいウィンドウで印刷用のHTMLを開く
+            const printWindow = window.open('', '_blank');
+
+            // HTMLドキュメントを安全に構築
+            const doc = printWindow.document;
+
+            // ドキュメントをクリア
+            doc.open();
+
+            // HTMLの基本構造を書き込む
+            doc.write('<!DOCTYPE html>');
+            doc.write('<html lang="ja">');
+            doc.write('<head>');
+            doc.write('<meta charset="UTF-8">');
+            doc.write('<title>' + currentFile.info.name + '</title>');
+            doc.write('<style>');
+            doc.write('@media print { @page { size: A4; margin: 20mm; } }');
+            doc.write('body { font-family: "Noto Sans JP", -apple-system, BlinkMacSystemFont, sans-serif; line-height: 1.8; color: #333; max-width: 800px; margin: 0 auto; padding: 20px; }');
+            doc.write('h1 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; margin: 30px 0 20px; page-break-after: avoid; }');
+            doc.write('h2 { color: #34495e; border-bottom: 1px solid #dee2e6; padding-bottom: 8px; margin: 25px 0 15px; page-break-after: avoid; }');
+            doc.write('h3 { color: #34495e; margin: 20px 0 10px; page-break-after: avoid; }');
+            doc.write('code { background: #f5f5f5; padding: 2px 6px; border-radius: 3px; font-family: "Consolas", "Monaco", monospace; font-size: 0.9em; }');
+            doc.write('pre { background: #f8f8f8; border: 1px solid #ddd; padding: 15px; border-radius: 5px; overflow-x: auto; page-break-inside: avoid; }');
+            doc.write('pre code { background: none; padding: 0; }');
+            doc.write('table { border-collapse: collapse; width: 100%; margin: 20px 0; page-break-inside: avoid; }');
+            doc.write('th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }');
+            doc.write('th { background: #f8f9fa; font-weight: bold; }');
+            doc.write('blockquote { border-left: 4px solid #3498db; padding-left: 20px; margin: 20px 0; color: #666; font-style: italic; }');
+            doc.write('ul, ol { margin: 15px 0; padding-left: 30px; }');
+            doc.write('li { margin: 5px 0; }');
+            doc.write('.header { text-align: center; margin-bottom: 40px; padding-bottom: 20px; border-bottom: 2px solid #3498db; }');
+            doc.write('.header h1 { border: none; margin: 0; font-size: 2em; }');
+            doc.write('.metadata { margin-top: 10px; font-size: 0.9em; color: #666; }');
+            doc.write('@media print { .no-print { display: none; } }');
+            doc.write('</style>');
+            doc.write('</head>');
+            doc.write('<body>');
+
+            // ヘッダー部分
+            doc.write('<div class="header">');
+            doc.write('<h1>' + currentFile.info.name + '</h1>');
+            doc.write('<div class="metadata">');
+            doc.write('生成日: ' + new Date().toLocaleDateString('ja-JP') + ' ' + new Date().toLocaleTimeString('ja-JP') + '<br>');
+            doc.write('MD Document Browser');
+            doc.write('</div>');
+            doc.write('</div>');
+
+            // コンテンツ部分（HTMLをそのまま挿入）
+            doc.write('<div id="content">');
+            doc.write(currentFile.html);
+            doc.write('</div>');
+
+            // 印刷ボタン
+            doc.write('<div class="no-print" style="position: fixed; top: 20px; right: 20px;">');
+            doc.write('<button onclick="window.print()" style="padding: 10px 20px; background: #3498db; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px;">');
+            doc.write('📄 PDFとして保存');
+            doc.write('</button>');
+            doc.write('<button onclick="window.close()" style="padding: 10px 20px; background: #95a5a6; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; margin-left: 10px;">');
+            doc.write('閉じる');
+            doc.write('</button>');
+            doc.write('</div>');
+
+            // 自動印刷スクリプト
+            doc.write('<scr' + 'ipt>');
+            doc.write('window.addEventListener("load", function() {');
+            doc.write('    setTimeout(function() { window.print(); }, 500);');
+            doc.write('});');
+            doc.write('</scr' + 'ipt>');
+
+            doc.write('</body>');
+            doc.write('</html>');
+
+            // ドキュメントを閉じる
+            doc.close();
+        }
+
+        // 検索
+        async function search(query) {
+            if (!query) {
+                switchTab('files');
+                return;
+            }
+
+            try {
+                showLoading(true);
+
+                const projectPath = document.getElementById('projectSelect').value;
+                const url = projectPath
+                    ? `/api/search?q=${encodeURIComponent(query)}&project=${encodeURIComponent(projectPath)}`
+                    : `/api/search?q=${encodeURIComponent(query)}`;
+
+                const response = await fetch(url);
+                const results = await response.json();
+
+                displaySearchResults(results, query);
+                switchTab('search');
+
+            } catch (error) {
+                console.error('検索エラー:', error);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // 検索結果を表示
+        function displaySearchResults(results, query) {
+            const container = document.getElementById('searchResults');
+            container.innerHTML = '';
+
+            if (results.length === 0) {
+                container.innerHTML = '<div style="padding: 20px; text-align: center; color: rgba(255,255,255,0.5)">検索結果がありません</div>';
+                return;
+            }
+
+            const header = document.createElement('div');
+            header.style.padding = '10px';
+            header.style.color = 'rgba(255,255,255,0.7)';
+            header.textContent = `"${query}" の検索結果: ${results.length}件`;
+            container.appendChild(header);
+
+            results.forEach(result => {
+                const item = document.createElement('div');
+                item.className = 'search-result-item';
+
+                const fileName = document.createElement('div');
+                fileName.className = 'file-name';
+                fileName.innerHTML = `${getFileIcon(result.name)} ${result.name}`;
+
+                const matchCount = document.createElement('div');
+                matchCount.style.fontSize = '12px';
+                matchCount.style.color = 'rgba(255,255,255,0.6)';
+                matchCount.textContent = `${result.total_matches}件の一致`;
+
+                item.appendChild(fileName);
+                item.appendChild(matchCount);
+
+                // マッチした行を表示
+                if (result.matches) {
+                    result.matches.forEach(match => {
+                        const line = document.createElement('div');
+                        line.className = 'match-line';
+                        const highlighted = match.line.replace(
+                            new RegExp(query, 'gi'),
+                            `<span class="match-highlight">$&</span>`
+                        );
+                        line.innerHTML = `L${match.line_number}: ${highlighted}`;
+                        item.appendChild(line);
+                    });
+                }
+
+                item.onclick = (e) => loadFile(result.path, e.currentTarget);
+                container.appendChild(item);
+            });
+        }
+
+        // 最近のファイルを読み込む
+        async function loadRecentFiles() {
+            try {
+                const response = await fetch('/api/recent');
+                recentFiles = await response.json();
+                displayRecentFiles();
+            } catch (error) {
+                console.error('最近のファイル読み込みエラー:', error);
+            }
+        }
+
+        // 最近のファイルを表示
+        function displayRecentFiles() {
+            const container = document.getElementById('recentFiles');
+            const list = container.querySelector('div') || document.createElement('div');
+            list.innerHTML = '';
+
+            recentFiles.slice(0, 5).forEach(file => {
+                const item = document.createElement('div');
+                item.className = 'recent-file-item';
+                item.innerHTML = `
+                    <div>
+                        <div class="recent-file-name">${getFileIcon(file.name)} ${file.name}</div>
+                        <div style="font-size: 0.85em; color: #95a5a6; margin-top: 4px;">${file.modified_human}</div>
+                    </div>
+                    <div class="recent-file-project">${file.project || 'Unknown'}</div>
+                `;
+                item.onclick = (e) => loadFile(file.path, e.currentTarget);
+                list.appendChild(item);
+            });
+
+            if (!container.querySelector('div')) {
+                container.appendChild(list);
+            }
+        }
+
+        // タブを切り替える
+        function switchTab(tabName) {
+            currentTab = tabName;
+
+            // タブのアクティブ状態を更新
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.toggle('active', tab.dataset.tab === tabName);
+            });
+
+            // コンテンツの表示/非表示
+            document.getElementById('fileList').style.display = tabName === 'files' ? 'block' : 'none';
+            document.getElementById('searchResults').style.display = tabName === 'search' ? 'block' : 'none';
+
+            if (tabName === 'recent') {
+                displayFiles(recentFiles);
+                document.getElementById('fileList').style.display = 'block';
+            } else if (tabName === 'files') {
+                loadFiles(currentProject);
+            }
+        }
+
+        // ローディング表示
+        function showLoading(show) {
+            document.getElementById('loadingScreen').style.display = show ? 'flex' : 'none';
+        }
+
+        // イベントリスナーの設定
+        function setupEventListeners() {
+            // プロジェクト選択
+            document.getElementById('projectSelect').addEventListener('change', (e) => {
+                currentProject = e.target.value;
+                loadFiles(currentProject);
+            });
+
+            // 検索ボックス
+            let searchTimeout;
+            document.getElementById('searchBox').addEventListener('input', (e) => {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(() => {
+                    search(e.target.value);
+                }, 500);
+            });
+
+            // タブ切り替え
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    switchTab(tab.dataset.tab);
+                });
+            });
+
+            // キーボードショートカット
+            document.addEventListener('keydown', (e) => {
+                // Ctrl/Cmd + F: 検索
+                if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+                    e.preventDefault();
+                    document.getElementById('searchBox').focus();
+                }
+                // Escape: 目次を閉じる
+                if (e.key === 'Escape') {
+                    document.getElementById('tocContainer').classList.remove('visible');
+                }
+            });
+        }
+
+        // 初期化実行
+        init();
+    </script>
+</body>
+</html>
